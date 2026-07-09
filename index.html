@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BLUOM Music</title>
+    <!-- Include Supabase JS client SDK -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        body {
+            margin: 0;
+            background-color: #121212;
+            color: #ffffff;
+            font-family: 'Segoe UI', Arial, sans-serif;
+            display: grid;
+            grid-template-columns: 240px 1fr;
+            grid-template-rows: 1fr 90px;
+            height: 100vh;
+        }
+        .sidebar { background: #000000; padding: 20px; border-right: 1px solid #282828; }
+        .main-view { padding: 30px; overflow-y: auto; background: linear-gradient(to bottom, #1e1e1e, #121212); }
+        .player-bar { 
+            grid-column: 1 / -1; 
+            background: #181818; 
+            border-top: 1px solid #282828;
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            padding: 0 20px;
+        }
+        .nav-link { color: #b3b3b3; text-decoration: none; display: block; margin: 20px 0; font-weight: bold; cursor: pointer; }
+        .nav-link:hover { color: #fff; }
+        .hidden { display: none; }
+        .track-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px;
+            border-bottom: 1px solid #282828;
+            border-radius: 4px;
+        }
+        .track-row:hover { background: #282828; }
+        .btn { padding: 8px 16px; background: #1db954; color: white; border: none; border-radius: 20px; cursor: pointer; font-weight: bold; }
+        .btn-download { background: #333; margin-left: 10px; }
+        .btn:hover { transform: scale(1.04); }
+    </style>
+</head>
+<body>
+
+    <!-- Sidebar Navigation -->
+    <div class="sidebar">
+        <h2 style="color: #1db954;">BLUOM Music</h2>
+        <div class="nav-link" onclick="navigateTo('home')">Home Library</div>
+        <div class="nav-link" onclick="navigateTo('upload')">Upload (.mp3)</div>
+    </div>
+
+    <!-- Main Content Dynamic Panels -->
+    <div class="main-view">
+        <div id="home-page">
+            <h2>Your Library</h2>
+            <div id="songs-list" style="margin-top: 20px;">Loading library tracks...</div>
+        </div>
+
+        <div id="upload-page" class="hidden">
+            <h2>Upload New Track</h2>
+            <p style="color: #b3b3b3;">Add files to the BLUOM cloud decentralized registry.</p>
+            <input type="text" id="song-title" placeholder="Song Title" style="display:block; width: 300px; margin:15px 0; padding:10px; background:#282828; border:1px solid #404040; color:white; border-radius:4px;"><br>
+            <input type="file" id="audio-file" accept="audio/mp3"><br><br>
+            <button id="upload-btn" onclick="handleUpload()" class="btn">Upload to BLUOM Cloud</button>
+        </div>
+    </div>
+
+    <!-- Universal Bottom Audio Player Bar -->
+    <div class="player-bar">
+        <audio id="main-audio" controls style="width: 70%;"></audio>
+    </div>
+
+    <script>
+        // REPLACE THESE WITH YOUR ACTUAL SUPABASE CREDENTIALS
+        const SUPABASE_URL = "https://your-project-id.supabase.co";
+        const SUPABASE_ANON_KEY = "your-anon-public-key";
+        
+        const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        // Client Router using View Switching
+        function navigateTo(pageId) {
+            document.getElementById('home-page').classList.add('hidden');
+            document.getElementById('upload-page').classList.add('hidden');
+            document.getElementById(`${pageId}-page`).classList.remove('hidden');
+            if (pageId === 'home') loadSongs();
+        }
+
+        // Fetch Track Details from Postgres Engine
+        async function loadSongs() {
+            const listContainer = document.getElementById('songs-list');
+            
+            let { data: songs, error } = await supabase.from('songs').select('*').order('created_at', { ascending: false });
+            
+            if (error) {
+                listContainer.innerHTML = `<p style="color:red">Error loading tracks: ${error.message}</p>`;
+                return;
+            }
+            
+            if (songs.length === 0) {
+                listContainer.innerHTML = '<p style="color:#b3b3b3">No tracks uploaded yet. Head to the Upload page!</p>';
+                return;
+            }
+
+            listContainer.innerHTML = '';
+            songs.forEach(track => {
+                const row = document.createElement('div');
+                row.className = 'track-row';
+                row.innerHTML = `
+                    <div>
+                        <strong style="font-size: 1.1em;">${track.title}</strong>
+                    </div>
+                    <div>
+                        <button class="btn" onclick="playSong('${track.audio_url}')">Play</button>
+                        <button class="btn btn-download" onclick="downloadSong('${track.audio_url}', '${track.id}')">Download</button>
+                    </div>
+                `;
+                listContainer.appendChild(row);
+            });
+        }
+
+        // Play engine checks Local Storage Cache before calling remote CDN servers
+        async function playSong(url) {
+            const audioPlayer = document.getElementById('main-audio');
+            const cache = await caches.open('bluom-music-cache');
+            const cachedResponse = await cache.match(url);
+            
+            if (cachedResponse) {
+                console.log("Playing directly from offline BLUOM Local Storage Cache...");
+                const blob = await cachedResponse.blob();
+                audioPlayer.src = URL.createObjectURL(blob);
+            } else {
+                console.log("Streaming from online cloud CDN...");
+                audioPlayer.src = url;
+            }
+            audioPlayer.play();
+        }
+
+        // Native Browser Cache API downloading function
+        async function downloadSong(url, trackId) {
+            try {
+                const cache = await caches.open('bluom-music-cache');
+                // Adds the network file directly into browser internal storage partition
+                await cache.add(url);
+                alert('Track successfully saved to local browser cache! Available offline.');
+            } catch (error) {
+                console.error('Download cache pipeline failure:', error);
+                alert('Failed to save track offline.');
+            }
+        }
+
+        // Upload handler for MP3 processing
+        async function handleUpload() {
+            const title = document.getElementById('song-title').value.trim();
+            const file = document.getElementById('audio-file').files[0];
+            const uploadBtn = document.getElementById('upload-btn');
+            
+            if (!title || !file) {
+                alert('Please provide a track title and select an MP3 file!');
+                return;
+            }
+
+            uploadBtn.innerText = "Uploading file...";
+            uploadBtn.disabled = true;
+
+            // 1. Upload file binary payload to Supabase Object Storage
+            const fileExtension = file.name.split('.').pop();
+            const fileName = `${Date.now()}.${fileExtension}`;
+            
+            let { data: storageData, error: storageError } = await supabase.storage
+                .from('music-files')
+                .upload(fileName, file);
+
+            if (storageError) {
+                alert(`Storage error: ${storageError.message}`);
+                uploadBtn.innerText = "Upload to BLUOM Cloud";
+                uploadBtn.disabled = false;
+                return;
+            }
+
+            // 2. Resolve final public resource URL
+            const { data: { publicUrl } } = supabase.storage.from('music-files').getPublicUrl(fileName);
+
+            // 3. Write record row to PostgreSQL ledger
+            let { error: dbError } = await supabase
+                .from('songs')
+                .insert([{ title: title, audio_url: publicUrl }]);
+
+            if (dbError) {
+                alert(`Database registration failed: ${dbError.message}`);
+            } else {
+                alert('Track successfully published into BLUOM Music ecosystem!');
+                document.getElementById('song-title').value = '';
+                document.getElementById('audio-file').value = '';
+                navigateTo('home');
+            }
+
+            uploadBtn.innerText = "Upload to BLUOM Cloud";
+            uploadBtn.disabled = false;
+        }
+
+        // Initial setup run
+        loadSongs();
+    </script>
+</body>
+</html>
