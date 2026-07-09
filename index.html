@@ -4,207 +4,414 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>BLUOM Music</title>
-    <!-- Include Supabase JS client SDK -->
+    <!-- Supabase JS Engine -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
+        :root {
+            --apple-red: #fa243c;
+            --bg-base: #0d0d0d;
+            --panel-glass: rgba(28, 28, 30, 0.75);
+            --border-glass: rgba(255, 255, 255, 0.08);
+            --text-main: #ffffff;
+            --text-secondary: #8e8e93;
+        }
+
         body {
             margin: 0;
-            background-color: #121212;
-            color: #ffffff;
-            font-family: 'Segoe UI', Arial, sans-serif;
+            background: var(--bg-base);
+            color: var(--text-main);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
             display: grid;
-            grid-template-columns: 240px 1fr;
-            grid-template-rows: 1fr 90px;
+            grid-template-columns: 260px 1fr;
             height: 100vh;
+            overflow: hidden;
         }
-        .sidebar { background: #000000; padding: 20px; border-right: 1px solid #282828; }
-        .main-view { padding: 30px; overflow-y: auto; background: linear-gradient(to bottom, #1e1e1e, #121212); }
-        .player-bar { 
-            grid-column: 1 / -1; 
-            background: #181818; 
-            border-top: 1px solid #282828;
-            display: flex; 
-            align-items: center; 
-            justify-content: center; 
-            padding: 0 20px;
+
+        /* Apple Glassmorphic Sidebar */
+        .sidebar {
+            background: rgba(20, 20, 20, 0.6);
+            backdrop-filter: blur(30px);
+            -webkit-backdrop-filter: blur(30px);
+            border-right: 1px solid var(--border-glass);
+            padding: 35px 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
         }
-        .nav-link { color: #b3b3b3; text-decoration: none; display: block; margin: 20px 0; font-weight: bold; cursor: pointer; }
-        .nav-link:hover { color: #fff; }
-        .hidden { display: none; }
-        .track-row {
+
+        .brand-title {
+            font-size: 22px;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+            margin-bottom: 30px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .brand-dot {
+            width: 10px;
+            height: 10px;
+            background: var(--apple-red);
+            border-radius: 50%;
+            box-shadow: 0 0 12px var(--apple-red);
+        }
+
+        .nav-link {
+            color: var(--text-main);
+            text-decoration: none;
+            padding: 12px 16px;
+            border-radius: 10px;
+            font-size: 15px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+        }
+
+        .nav-link:hover {
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .nav-link.active {
+            background: var(--apple-red);
+            box-shadow: 0 4px 15px rgba(250, 36, 60, 0.3);
+        }
+
+        /* Main Content Container */
+        .main-view {
+            padding: 40px 50px;
+            overflow-y: auto;
+            padding-bottom: 140px;
+            background: radial-gradient(circle at top left, #1c1c1e 0%, var(--bg-base) 60%);
+        }
+
+        h2 {
+            font-size: 34px;
+            font-weight: 700;
+            letter-spacing: -1px;
+            margin-top: 0;
+            margin-bottom: 25px;
+        }
+
+        /* Apple Music Card Lists */
+        .track-grid {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            max-width: 800px;
+        }
+
+        .track-card {
+            background: var(--panel-glass);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--border-glass);
+            padding: 16px 24px;
+            border-radius: 14px;
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding: 10px;
-            border-bottom: 1px solid #282828;
-            border-radius: 4px;
+            transition: transform 0.2s ease, background 0.2s ease;
         }
-        .track-row:hover { background: #282828; }
-        .btn { padding: 8px 16px; background: #1db954; color: white; border: none; border-radius: 20px; cursor: pointer; font-weight: bold; }
-        .btn-download { background: #333; margin-left: 10px; }
-        .btn:hover { transform: scale(1.04); }
+
+        .track-card:hover {
+            background: rgba(44, 44, 46, 0.8);
+            transform: translateY(-2px);
+        }
+
+        .track-info th {
+            font-size: 16px;
+            font-weight: 600;
+        }
+
+        .track-subtitle {
+            font-size: 13px;
+            color: var(--text-secondary);
+            margin-top: 2px;
+        }
+
+        /* Interactive UI controls */
+        .apple-btn {
+            background: var(--apple-red);
+            color: white;
+            border: none;
+            padding: 10px 22px;
+            border-radius: 20px;
+            font-weight: 600;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .apple-btn:hover {
+            opacity: 0.9;
+            transform: scale(1.02);
+        }
+
+        .apple-btn-secondary {
+            background: rgba(255, 255, 255, 0.1);
+            color: var(--text-main);
+            border: 1px solid var(--border-glass);
+            margin-left: 8px;
+        }
+
+        .apple-btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.15);
+        }
+
+        /* Premium Floating Player Dock */
+        .player-dock-container {
+            position: fixed;
+            bottom: 30px;
+            left: 290px;
+            right: 30px;
+            display: flex;
+            justify-content: center;
+            z-index: 1000;
+            pointer-events: none;
+        }
+
+        .player-dock {
+            width: 100%;
+            max-width: 900px;
+            background: rgba(30, 30, 30, 0.65);
+            backdrop-filter: blur(30px);
+            -webkit-backdrop-filter: blur(30px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 18px 30px;
+            border-radius: 24px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            pointer-events: auto;
+        }
+
+        /* Input Elements */
+        .apple-input {
+            width: 100%;
+            max-width: 400px;
+            padding: 14px;
+            background: rgba(255,255,255,0.05);
+            border: 1px solid var(--border-glass);
+            border-radius: 12px;
+            color: white;
+            font-size: 16px;
+            margin-bottom: 20px;
+            outline: none;
+        }
+        .apple-input:focus {
+            border-color: var(--apple-red);
+        }
+
+        .hidden { display: none !important; }
+
+        /* Credentials Overlay configuration system */
+        .config-banner {
+            background: #ff9500;
+            color: black;
+            padding: 12px;
+            text-align: center;
+            font-weight: 600;
+            font-size: 14px;
+            grid-column: 1 / -1;
+        }
     </style>
 </head>
 <body>
 
-    <!-- Sidebar Navigation -->
+    <!-- Connection Checker Notice banner -->
+    <div id="setup-warning" class="config-banner">
+        ⚠️ BLUOM Music Database Connection Required. Click "Upload" to add your Supabase keys.
+    </div>
+
+    <!-- Sidebar Navigation Grid Component -->
     <div class="sidebar">
-        <h2 style="color: #1db954;">BLUOM Music</h2>
-        <div class="nav-link" onclick="navigateTo('home')">Home Library</div>
-        <div class="nav-link" onclick="navigateTo('upload')">Upload (.mp3)</div>
+        <div class="brand-title">
+            <div class="brand-dot"></div>
+            BLUOM Music
+        </div>
+        <div id="nav-home" class="nav-link active" onclick="switchView('home')">Listen Now</div>
+        <div id="nav-upload" class="nav-link" onclick="switchView('upload')">Add Music (.mp3)</div>
     </div>
 
-    <!-- Main Content Dynamic Panels -->
+    <!-- Fluid Content Panel -->
     <div class="main-view">
-        <div id="home-page">
-            <h2>Your Library</h2>
-            <div id="songs-list" style="margin-top: 20px;">Loading library tracks...</div>
+        <div id="view-home">
+            <h2>Listen Now</h2>
+            <div id="songs-list" class="track-grid">Loading your cloud catalog...</div>
         </div>
 
-        <div id="upload-page" class="hidden">
-            <h2>Upload New Track</h2>
-            <p style="color: #b3b3b3;">Add files to the BLUOM cloud decentralized registry.</p>
-            <input type="text" id="song-title" placeholder="Song Title" style="display:block; width: 300px; margin:15px 0; padding:10px; background:#282828; border:1px solid #404040; color:white; border-radius:4px;"><br>
-            <input type="file" id="audio-file" accept="audio/mp3"><br><br>
-            <button id="upload-btn" onclick="handleUpload()" class="btn">Upload to BLUOM Cloud</button>
+        <div id="view-upload" class="hidden">
+            <h2>Add Music Ledger</h2>
+            <div id="key-configuration" style="margin-bottom: 30px; padding: 20px; background: rgba(255,149,0,0.1); border-radius: 12px; border: 1px solid #ff9500;">
+                <h4 style="margin-top:0; color: #ff9500;">Developer API Link Engine</h4>
+                <input type="text" id="sb-url" placeholder="Supabase Project URL" class="apple-input" style="margin-bottom:10px;"><br>
+                <input type="password" id="sb-key" placeholder="Supabase Anon Public Key" class="apple-input" style="margin-bottom:0;">
+                <p style="font-size:12px; color: var(--text-secondary); margin-top:8px;">These variables save securely inside your local browser storage engine sandbox.</p>
+            </div>
+
+            <input type="text" id="song-title" placeholder="Track Name" class="apple-input"><br>
+            <input type="file" id="audio-file" accept="audio/mp3" style="margin-bottom: 20px;"><br>
+            <button id="upload-btn" onclick="executeCloudUpload()" class="apple-btn">Publish to Library</button>
         </div>
     </div>
 
-    <!-- Universal Bottom Audio Player Bar -->
-    <div class="player-bar">
-        <audio id="main-audio" controls style="width: 70%;"></audio>
+    <!-- Floating Playback Docking System -->
+    <div class="player-dock-container">
+        <div class="player-dock">
+            <audio id="main-audio" controls style="width: 100%; height: 40px;"></audio>
+        </div>
     </div>
 
     <script>
-        // REPLACE THESE WITH YOUR ACTUAL SUPABASE CREDENTIALS
-        const SUPABASE_URL = "https://your-project-id.supabase.co";
-        const SUPABASE_ANON_KEY = "your-anon-public-key";
-        
-        const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        let supabaseClient = null;
 
-        // Client Router using View Switching
-        function navigateTo(pageId) {
-            document.getElementById('home-page').classList.add('hidden');
-            document.getElementById('upload-page').classList.add('hidden');
-            document.getElementById(`${pageId}-page`).classList.remove('hidden');
-            if (pageId === 'home') loadSongs();
+        // Configuration memory retrieval
+        window.addEventListener('load', () => {
+            const savedUrl = localStorage.getItem('BLUOM_SB_URL');
+            const savedKey = localStorage.getItem('BLUOM_SB_KEY');
+            
+            if(savedUrl && savedKey) {
+                document.getElementById('sb-url').value = savedUrl;
+                document.getElementById('sb-key').value = savedKey;
+                initSupabase(savedUrl, savedKey);
+            }
+        });
+
+        function initSupabase(url, key) {
+            try {
+                supabaseClient = supabase.createClient(url, key);
+                document.getElementById('setup-warning').classList.add('hidden');
+                loadCatalog();
+            } catch(e) {
+                console.error("Initialization fault:", e);
+            }
         }
 
-        // Fetch Track Details from Postgres Engine
-        async function loadSongs() {
-            const listContainer = document.getElementById('songs-list');
-            
-            let { data: songs, error } = await supabase.from('songs').select('*').order('created_at', { ascending: false });
-            
-            if (error) {
-                listContainer.innerHTML = `<p style="color:red">Error loading tracks: ${error.message}</p>`;
-                return;
-            }
-            
-            if (songs.length === 0) {
-                listContainer.innerHTML = '<p style="color:#b3b3b3">No tracks uploaded yet. Head to the Upload page!</p>';
+        function switchView(target) {
+            document.getElementById('view-home').classList.add('hidden');
+            document.getElementById('view-upload').classList.add('hidden');
+            document.getElementById('nav-home').classList.remove('active');
+            document.getElementById('nav-upload').classList.remove('active');
+
+            document.getElementById(`view-${target}`).classList.remove('hidden');
+            document.getElementById(`nav-${target}`).classList.add('active');
+
+            if(target === 'home') loadCatalog();
+        }
+
+        async function loadCatalog() {
+            const container = document.getElementById('songs-list');
+            if(!supabaseClient) {
+                container.innerHTML = `<p style="color:#ff9500">Awaiting database connection parameters. Go to 'Add Music' to enter details.</p>`;
                 return;
             }
 
-            listContainer.innerHTML = '';
+            let { data: songs, error } = await supabaseClient.from('songs').select('*').order('created_at', { ascending: false });
+            
+            if (error) {
+                container.innerHTML = `<p style="color:red">Engine sync error: ${error.message}</p>`;
+                return;
+            }
+            if (songs.length === 0) {
+                container.innerHTML = '<p style="color:var(--text-secondary)">Your global cloud matrix catalog is empty.</p>';
+                return;
+            }
+
+            container.innerHTML = '';
             songs.forEach(track => {
-                const row = document.createElement('div');
-                row.className = 'track-row';
-                row.innerHTML = `
-                    <div>
-                        <strong style="font-size: 1.1em;">${track.title}</strong>
+                const card = document.createElement('div');
+                card.className = 'track-card';
+                card.innerHTML = `
+                    <div class="track-info">
+                        <div><strong>${track.title}</strong></div>
+                        <div class="track-subtitle">BLUOM Verified Lossless Audio Asset</div>
                     </div>
                     <div>
-                        <button class="btn" onclick="playSong('${track.audio_url}')">Play</button>
-                        <button class="btn btn-download" onclick="downloadSong('${track.audio_url}', '${track.id}')">Download</button>
+                        <button class="apple-btn" onclick="streamTrack('${track.audio_url}')">Play</button>
+                        <button class="apple-btn apple-btn-secondary" onclick="cacheTrackOffline('${track.audio_url}')">Download</button>
                     </div>
                 `;
-                listContainer.appendChild(row);
+                container.appendChild(card);
             });
         }
 
-        // Play engine checks Local Storage Cache before calling remote CDN servers
-        async function playSong(url) {
-            const audioPlayer = document.getElementById('main-audio');
+        async function streamTrack(url) {
+            const player = document.getElementById('main-audio');
             const cache = await caches.open('bluom-music-cache');
-            const cachedResponse = await cache.match(url);
+            const match = await cache.match(url);
             
-            if (cachedResponse) {
-                console.log("Playing directly from offline BLUOM Local Storage Cache...");
-                const blob = await cachedResponse.blob();
-                audioPlayer.src = URL.createObjectURL(blob);
+            if(match) {
+                const blob = await match.blob();
+                player.src = URL.createObjectURL(blob);
             } else {
-                console.log("Streaming from online cloud CDN...");
-                audioPlayer.src = url;
+                player.src = url;
             }
-            audioPlayer.play();
+            player.play();
         }
 
-        // Native Browser Cache API downloading function
-        async function downloadSong(url, trackId) {
+        async function cacheTrackOffline(url) {
             try {
                 const cache = await caches.open('bluom-music-cache');
-                // Adds the network file directly into browser internal storage partition
                 await cache.add(url);
-                alert('Track successfully saved to local browser cache! Available offline.');
-            } catch (error) {
-                console.error('Download cache pipeline failure:', error);
-                alert('Failed to save track offline.');
+                alert('Track downloaded safely to local sandboxed sandbox allocation.');
+            } catch(e) {
+                alert('Local download execution failed.');
             }
         }
 
-        // Upload handler for MP3 processing
-        async function handleUpload() {
+        async function executeCloudUpload() {
+            const urlInput = document.getElementById('sb-url').value.trim();
+            const keyInput = document.getElementById('sb-key').value.trim();
             const title = document.getElementById('song-title').value.trim();
             const file = document.getElementById('audio-file').files[0];
-            const uploadBtn = document.getElementById('upload-btn');
-            
-            if (!title || !file) {
-                alert('Please provide a track title and select an MP3 file!');
+            const btn = document.getElementById('upload-btn');
+
+            if(urlInput && keyInput && (!supabaseClient)) {
+                localStorage.setItem('BLUOM_SB_URL', urlInput);
+                localStorage.setItem('BLUOM_SB_KEY', keyInput);
+                initSupabase(urlInput, keyInput);
+            }
+
+            if(!supabaseClient) {
+                alert('Database connection config fields are required first.');
+                return;
+            }
+            if(!title || !file) {
+                alert('Enter track name and supply file targets.');
                 return;
             }
 
-            uploadBtn.innerText = "Uploading file...";
-            uploadBtn.disabled = true;
+            btn.innerText = "Encoding & Uploading Asset...";
+            btn.disabled = true;
 
-            // 1. Upload file binary payload to Supabase Object Storage
-            const fileExtension = file.name.split('.').pop();
-            const fileName = `${Date.now()}.${fileExtension}`;
-            
-            let { data: storageData, error: storageError } = await supabase.storage
-                .from('music-files')
-                .upload(fileName, file);
+            const nameToken = `${Date.now()}-${file.name}`;
+            let { data: sData, error: sErr } = await supabaseClient.storage.from('music-files').upload(nameToken, file);
 
-            if (storageError) {
-                alert(`Storage error: ${storageError.message}`);
-                uploadBtn.innerText = "Upload to BLUOM Cloud";
-                uploadBtn.disabled = false;
+            if(sErr) {
+                alert(`Upload failed: ${sErr.message}`);
+                btn.innerText = "Publish to Library";
+                btn.disabled = false;
                 return;
             }
 
-            // 2. Resolve final public resource URL
-            const { data: { publicUrl } } = supabase.storage.from('music-files').getPublicUrl(fileName);
+            const { data: { publicUrl } } = supabaseClient.storage.from('music-files').getPublicUrl(nameToken);
 
-            // 3. Write record row to PostgreSQL ledger
-            let { error: dbError } = await supabase
-                .from('songs')
-                .insert([{ title: title, audio_url: publicUrl }]);
+            let { error: dbErr } = await supabaseClient.from('songs').insert([{ title: title, audio_url: publicUrl }]);
 
-            if (dbError) {
-                alert(`Database registration failed: ${dbError.message}`);
+            if(dbErr) {
+                alert(`DB tracking entry creation failed: ${dbErr.message}`);
             } else {
-                alert('Track successfully published into BLUOM Music ecosystem!');
+                alert('Asset live on network.');
                 document.getElementById('song-title').value = '';
                 document.getElementById('audio-file').value = '';
-                navigateTo('home');
+                switchView('home');
             }
-
-            uploadBtn.innerText = "Upload to BLUOM Cloud";
-            uploadBtn.disabled = false;
+            btn.innerText = "Publish to Library";
+            btn.disabled = false;
         }
-
-        // Initial setup run
-        loadSongs();
     </script>
 </body>
 </html>
